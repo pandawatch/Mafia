@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+
+      body {
+        font-family: 'Special Elite', cursive, serif;
+        margin: 0;
+        padding: 16px;
+        background: #050505;
+        color: #d1d1d1;
+        background-image: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+      }
+      h1 {
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        color: #8b0000;
+        text-shadow: 2px 2px 4px #000;
+      }
+      .card {
+        background: rgba(20, 20, 20, 0.9);
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      }
+      input, select, textarea {
+        padding: 10px;
+        background: #111;
+        border: 1px solid #444;
+        color: #eee;
+        font-family: 'Special Elite', cursive;
+      }
+      button {
+        cursor: pointer;
+        background: #8b0000;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        text-transform: uppercase;
+        font-family: 'Special Elite', cursive;
+        transition: 0.3s;
+      }
+      button:hover { background: #660000; }
+      button.secondary { background: #333; }
+      .alive { color: #55efc4; }
+      .dead { color: #ff7675; text-decoration: line-through; opacity: 0.6; }
+
+      #overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: black;
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        animation: fadeIn 1s forwards;
+      }
+      #overlay h2 { font-size: 3em; color: #8b0000; margin-bottom: 10px; }
+      #overlay p { font-size: 1.5em; max-width: 80%; line-height: 1.6; white-space: pre-line; }
+      #overlay .role-reveal { font-size: 2em; color: #fff; margin-top: 20px; border: 1px solid #8b0000; padding: 10px 30px; }
+
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+      .mafia-role { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
+      .villager-role { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
+      .special-role { color: #00bcd4; text-shadow: 0 0 10px #00bcd4; }
+
+      #chatBox {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #333;
+        padding: 8px;
+        background: rgba(0,0,0,0.4);
+        font-size: 0.9em;
+      }
+      .chat-line-name { color: #8b0000; }
+      .chat-line-text { color: #d1d1d1; }
+
+      .role-help {
+        display: inline-block;
+        margin-left: 6px;
+        color: #8b0000;
+        cursor: pointer;
+        font-weight: bold;
+        position: relative;
+      }
+      .tooltip {
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+        position: absolute;
+        left: 50%;
+        bottom: 125%;
+        transform: translateX(-50%);
+        background: rgba(20,20,20,0.95);
+        border: 1px solid #333;
+        padding: 8px 12px;
+        border-radius: 4px;
+        color: #eee;
+        font-size: 0.85em;
+        width: 220px;
+        max-width: 90vw;
+        z-index: 2000;
+        white-space: normal;
+      }
+      .role-help:hover .tooltip {
+        visibility: visible;
+        opacity: 1;
+      }
+
+      #roleGuideModal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85);
+        z-index: 3000;
+        justify-content: center;
+        align-items: center;
+      }
+      #roleGuideContent {
+        background: rgba(20,20,20,0.95);
+        border: 1px solid #333;
+        padding: 20px;
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        color: #eee;
+        border-radius: 6px;
+        box-shadow: 0 0 20px #000;
+      }
+      #closeGuideBtn {
+        margin-top: 20px;
+        background: #8b0000;
+        padding: 10px 20px;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-family: 'Special Elite', cursive;
+      }
+
+      .role-icon {
+        width: 20px;
+        height: 20px;
+        vertical-align: middle;
+        margin-right: 6px;
+        filter: drop-shadow(0 0 3px #000);
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <div id="overlay">
+        <h2 id="overlayTitle">THE SUN RISES</h2>
+        <p id="overlayMessage"></p>
+        <div id="overlayRole" class="role-reveal"></div>
+        <button onclick="closeOverlay()" style="margin-top:40px;">Understood</button>
+    </div>
+
+    <div id="roleGuideModal">
+      <div id="roleGuideContent">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <h1>The Underworld</h1>
+
+    <div id="authCard" class="card">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <input id="playerName" placeholder="Alias (Your Name)">
+        <input id="roomIdInput" placeholder="Room ID (to join)" maxlength="4">
+        <div style="display:flex; gap:10px;">
+            <button onclick="createRoom()" style="flex:1">Host</button>
+            <button class="secondary" onclick="joinRoom()" style="flex:1">Join</button>
+        </div>
+      </div>
+      <div id="authError" class="error" style="color:red; margin-top:10px;"></div>
+    </div>
+
+    <div id="gameCard" class="card" style="display:none;">
+      <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #444; padding-bottom:10px;">
+        <div>Room: <span id="roomIdLabel" style="color:#8b0000"></span></div>
+
+        <div id="roleDisplay">
+          You are:
+          <span id="roleIcon"></span>
+          <span id="roleLabel">-</span>
+
+          <span id="roleHelp" class="role-help">?
+            <span id="roleTooltip" class="tooltip"></span>
+          </span>
+
+          <button onclick="openRoleGuide()" 
+                  style="margin-left:10px; background:#333; padding:4px 10px; font-size:0.8em;">
+            Role Guide
+          </button>
+
+          <div id="extraInfo" style="font-size:0.9em; margin-top:4px; color:#ccc;"></div>
+        </div>
+      </div>
+
+      <div style="margin: 20px 0;">
+        <div style="font-size:1.2em;">Phase: <span id="phaseLabel" style="text-transform:uppercase; color:#8b0000"></span></div>
+        <div id="winnerLabel" style="color:gold; font-size:1.5em; margin-top:10px;"></div>
+      </div>
+
+      <div class="card" style="background:rgba(0,0,0,0.5)">
+        <strong>Connected:</strong>
+        <ul id="playersList" style="list-style:none; padding:0; margin-top:10px;"></ul>
+      </div>
+
+      <div id="hostControls" style="display:none; border-top:1px solid #333; padding-top:10px;">
+        <button id="startBtn" onclick="startGame()">Start</button>
+        <button id="advanceBtn" onclick="advanceToDiscussion()">End Night</button>
+        <button id="beginDayBtn" onclick="beginDayPhase()">Begin Day</button>
+        <button id="resolveBtn" onclick="resolveDay()">Pass Sentence</button>
+      </div>
+
+      <div id="nightControls" style="display:none; margin-top:20px;">
+         <label id="nightLabel">Select a target (or choose 'No Action'):</label><br>
+         <select id="nightTargetSelect" style="width:100%"></select>
+         <button onclick="submitNightTarget()" style="width:100%; margin-top:5px;">Confirm Night Action</button>
+      </div>
+
+      <div id="dayControls" style="display:none; margin-top:20px;">
+         <label>Cast your suspicion (or choose 'Skip'):</label><br>
+         <select id="voteSelect" style="width:100%"></select>
+         <button onclick="submitVote()" style="width:100%; margin-top:5px;">Vote</button>
+      </div>
+
+      <div id="voteSummary" style="margin-top:10px; font-size:0.9em; white-space:pre-line;"></div>
+
+      <div class="card" style="margin-top:20px;">
+        <strong>Chat:</strong>
+        <div id="chatBox"></div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input id="chatInput" placeholder="Say something..." style="flex:1;">
+          <button onclick="sendChat()">Send</button>
+        </div>
+      </div>
+
+      <div id="gameError" style="color:red; margin-top:10px;"></div>
+    </div>
+        <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const ROLE_HELP = {
+        mafia: "You work with the Mafia to eliminate the town. Choose a target each night.",
+        villager: "You have no special powers. Discuss, observe, and vote wisely.",
+        doctor: "Choose someone to protect. If they are attacked, they survive.",
+        bodyguard: "Guard someone. If they are attacked, YOU take the hit instead.",
+        seer: "Inspect one player each night to learn their role (Jester appears unclear).",
+        jester: "Try to get voted out during the day. If you do, you win instantly.",
+        mason: "You know the other Masons and can trust them completely."
+      };
+
+      const ROLE_ICONS = {
+        mafia: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ff0000"><circle cx="12" cy="12" r="10"/></svg>`,
+        villager: `<svg class="role-icon" viewBox="0 0 24 24" fill="#00ff00"><rect x="4" y="4" width="16" height="16"/></svg>`,
+        doctor: `<svg class="role-icon" viewBox="0 0 24 24" fill="#00bcd4"><path d="M10 2h4v6h6v4h-6v6h-4v-6H4V8h6z"/></svg>`,
+        bodyguard: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ffaa00"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6z"/></svg>`,
+        seer: `<svg class="role-icon" viewBox="0 0 24 24" fill="#9c27b0"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg>`,
+        jester: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ff66ff"><path d="M12 2c-2 3-5 4-8 2 1 4 0 7-2 9 3 0 5 1 6 4 1-3 3-4 6-4-2-2-3-5-2-9-3 2-6 1-8-2z"/></svg>`,
+        mason: `<svg class="role-icon" viewBox="0 0 24 24" fill="#00e5ff"><path d="M12 2l10 18H2z"/></svg>`
+      };
+
+      function openRoleGuide() {
+        document.getElementById('roleGuideModal').style.display = 'flex';
+      }
+
+      function closeRoleGuide() {
+        document.getElementById('roleGuideModal').style.display = 'none';
+      }
+
+      document.getElementById("roleGuideContent").innerHTML = `
+        <h2 style="text-align:center; color:#8b0000;">Role Guide</h2>
+
+        <p>${ROLE_ICONS.mafia}<strong>Mafia</strong><br>
+        You work in the shadows with your fellow Mafia members. Each night, you secretly choose a target to eliminate.
+        Your goal is to outnumber the town. Blend in, act innocent, and avoid suspicion during the day.</p>
+
+        <p>${ROLE_ICONS.villager}<strong>Villager</strong><br>
+        You have no special night abilities, but you are the heart of the town. Pay attention to behavior, vote wisely,
+        and work with others to uncover the Mafia. Your strength is teamwork and logic.</p>
+
+        <p>${ROLE_ICONS.doctor}<strong>Doctor</strong><br>
+        Each night, you may choose one player to protect — including yourself if you wish. If the Mafia attacks your
+        chosen target, they survive. You can save lives, but you must guess correctly.</p>
+
+        <p>${ROLE_ICONS.bodyguard}<strong>Bodyguard</strong><br>
+        You choose one player to guard each night. If they are attacked, YOU take the hit instead. You may sacrifice
+        yourself to save someone important. Choose carefully — your life is valuable.</p>
+
+        <p>${ROLE_ICONS.seer}<strong>Seer</strong><br>
+        You may inspect one player each night to learn their role. However, Jesters appear “unclear” to you. Use your
+        visions wisely — revealing too much too early can make you a target.</p>
+
+        <p>${ROLE_ICONS.jester}<strong>Jester</strong><br>
+        Your goal is chaos. You WANT to get voted out during the day. If the town eliminates you, you win instantly.
+        Trick people, act suspicious, and stir confusion — but don’t get caught being too obvious.</p>
+
+        <p>${ROLE_ICONS.mason}<strong>Mason</strong><br>
+        You are part of a secret group of confirmed innocent players. You know the other Masons and can trust them
+        completely. Work together quietly to guide the town without revealing yourselves too early.</p>
+
+        <button id="closeGuideBtn" onclick="closeRoleGuide()">Close</button>
+      `;
+
+      let currentRoomId = null, currentPlayerId = null, currentPlayerName = null, pollInterval = null, lastPhase = null;
+
+      function createRoom() {
+        const name = document.getElementById('playerName').value.trim();
+        if (!name) return;
+        google.script.run.withSuccessHandler(res => {
+          currentRoomId = res.room.id; currentPlayerId = res.playerId; currentPlayerName = name;
+          enterGame(res.room);
+        }).createRoom(name);
+      }
+
+      function joinRoom() {
+        const name = document.getElementById('playerName').value.trim();
+        const roomId = document.getElementById('roomIdInput').value.trim().toUpperCase();
+        if (!name || !roomId) return;
+        google.script.run.withSuccessHandler(res => {
+          currentRoomId = res.room.id; currentPlayerId = res.playerId; currentPlayerName = name;
+          enterGame(res.room);
+        }).joinRoom(roomId, name);
+      }
+
+      function enterGame(room) {
+        document.getElementById('authCard').style.display = 'none';
+        document.getElementById('gameCard').style.display = 'block';
+        document.getElementById('roomIdLabel').textContent = room.id;
+        startPolling(); renderRoom(room);
+      }
+
+      function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => {
+          google.script.run.withSuccessHandler(renderRoom).getRoomState(currentRoomId, currentPlayerId);
+        }, 3000);
+      }
+
+      function renderRoom(room) {
+        if (lastPhase !== room.phase) {
+          showDramaticOverlay(room);
+        }
+        lastPhase = room.phase;
+
+        document.getElementById('phaseLabel').textContent = room.phase;
+        document.getElementById('winnerLabel').textContent = room.phase === 'ended' ? `VICTORY: ${room.winner.toUpperCase()}` : '';
+
+        const isHost = room.hostId === currentPlayerId;
+        document.getElementById('hostControls').style.display = isHost ? 'block' : 'none';
+        document.getElementById('startBtn').style.display = room.phase === 'lobby' ? 'inline-block' : 'none';
+        document.getElementById('advanceBtn').style.display = (room.phase === 'night' && isHost) ? 'inline-block' : 'none';
+        document.getElementById('beginDayBtn').style.display = (room.phase === 'discussion' && isHost) ? 'inline-block' : 'none';
+        document.getElementById('resolveBtn').style.display = (room.phase === 'day' && isHost) ? 'inline-block' : 'none';
+
+        const ul = document.getElementById('playersList');
+        ul.innerHTML = '';
+        let me = room.players.find(p => p.id === currentPlayerId);
+
+        let roleText = me.role ? me.role.toUpperCase() : 'Waiting...';
+        let roleClass = 'villager-role';
+        if (me.role === 'mafia') roleClass = 'mafia-role';
+        else if (me.role && me.role !== 'villager') roleClass = 'special-role';
+
+        document.getElementById('roleLabel').textContent = roleText;
+        document.getElementById('roleLabel').className = roleClass;
+
+        const iconHolder = document.getElementById('roleIcon');
+        iconHolder.innerHTML = me.role && ROLE_ICONS[me.role] ? ROLE_ICONS[me.role] : "";
+
+        const helpBox = document.getElementById('roleTooltip');
+        const helpWrapper = document.getElementById('roleHelp');
+        if (me.role && ROLE_HELP[me.role]) {
+          helpBox.innerHTML = (ROLE_ICONS[me.role] || "") + ROLE_HELP[me.role];
+          helpWrapper.style.display = 'inline-block';
+        } else {
+          helpWrapper.style.display = 'none';
+        }
+
+        const extraInfo = document.getElementById('extraInfo');
+        let infoLines = [];
+        if (me.role === 'mason') {
+          const others = room.players.filter(p => p.role === 'mason' && p.id !== me.id);
+          if (others.length > 0) {
+            infoLines.push("You trust these Masons: " + others.map(o => o.name).join(", "));
+          }
+        }
+        if (room.mySeerResult) {
+          infoLines.push("Seer vision: " + room.mySeerResult);
+        }
+        extraInfo.textContent = infoLines.join(" | ");
+
+        room.players.forEach(p => {
+          const li = document.createElement('li');
+          li.className = p.alive ? 'alive' : 'dead';
+          li.innerHTML = `• ${p.name} ${p.role && room.phase === 'ended' ? `(${p.role})` : ''}`;
+          ul.appendChild(li);
+        });
+
+        const canAct = me && me.alive;
+
+        if (canAct && room.phase === 'night' && ['mafia','doctor','bodyguard','seer'].includes(me.role)) {
+          document.getElementById('nightControls').style.display = 'block';
+          const label = document.getElementById('nightLabel');
+          if (me.role === 'mafia') label.textContent = "Choose someone to target (or 'No Action'):";
+          if (me.role === 'doctor') label.textContent = "Choose someone to protect (or 'No Action'):";
+          if (me.role === 'bodyguard') label.textContent = "Choose someone to guard (or 'No Action'):";
+          if (me.role === 'seer') label.textContent = "Choose someone to inspect (or 'No Action'):";
+        } else {
+          document.getElementById('nightControls').style.display = 'none';
+        }
+
+        document.getElementById('dayControls').style.display =
+          (canAct && room.phase === 'day') ? 'block' : 'none';
+
+        // Discussion phase: no controls, just chat
+        if (room.phase === 'discussion') {
+          document.getElementById('nightControls').style.display = 'none';
+          document.getElementById('dayControls').style.display = 'none';
+        }
+
+        populateNightSelect('nightTargetSelect', room.players, me);
+        populateVoteSelect('voteSelect', room.players, me);
+
+        document.getElementById('voteSummary').textContent = room.lastVoteSummary || "";
+
+        renderChat(room.chat || []);
+      }
+
+      function populateNightSelect(id, players, me) {
+        const select = document.getElementById(id);
+        select.innerHTML = '';
+
+        let noneOpt = document.createElement('option');
+        noneOpt.value = 'none';
+        noneOpt.textContent = 'No Action';
+        select.appendChild(noneOpt);
+
+        players.forEach(p => {
+          if (!p.alive) return;
+          if (me.role === 'mafia' && p.id === me.id) return;
+          if (me.role === 'bodyguard' && p.id === me.id) return;
+          if (me.role === 'seer' && p.id === me.id) return;
+          let opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+      }
+
+      function populateVoteSelect(id, players, me) {
+        const select = document.getElementById(id);
+        select.innerHTML = '';
+
+        let skipOpt = document.createElement('option');
+        skipOpt.value = 'skip';
+        skipOpt.textContent = 'Skip (no one)';
+        select.appendChild(skipOpt);
+
+        players.forEach(p => {
+          if (p.alive && p.id !== currentPlayerId) {
+            let opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            select.appendChild(opt);
+          }
+        });
+      }
+
+      function renderChat(chat) {
+        const box = document.getElementById('chatBox');
+        box.innerHTML = '';
+        chat.forEach(msg => {
+          const div = document.createElement('div');
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'chat-line-name';
+          nameSpan.textContent = msg.name + ': ';
+          const textSpan = document.createElement('span');
+          textSpan.className = 'chat-line-text';
+          textSpan.textContent = msg.text;
+          div.appendChild(nameSpan);
+          div.appendChild(textSpan);
+          box.appendChild(div);
+        });
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function sendChat() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+        google.script.run.withSuccessHandler(renderRoom).postChatMessage(currentRoomId, currentPlayerId, text);
+        input.value = '';
+      }
+
+      function showDramaticOverlay(room) {
+        const overlay = document.getElementById('overlay');
+        const title = document.getElementById('overlayTitle');
+        const msg = document.getElementById('overlayMessage');
+        const roleReveal = document.getElementById('overlayRole');
+        const me = room.players.find(p => p.id === currentPlayerId);
+
+        if (room.phase === 'day') title.textContent = "THE SUN RISES";
+        if (room.phase === 'night') title.textContent = "THE SUN SETS";
+        if (room.phase === 'discussion') title.textContent = "THE TOWN TALKS";
+        if (room.phase === 'ended') title.textContent = "THE GAME ENDS";
+
+        let fullMessage = room.lastDeathMessage || "";
+        if (room.lastVoteSummary && room.phase !== 'night') {
+          fullMessage += "\n\nVotes:\n" + room.lastVoteSummary;
+        }
+
+        msg.textContent = fullMessage;
+
+        if (me.role) {
+          roleReveal.textContent = `YOU ARE ${me.role.toUpperCase()}`;
+        } else {
+          roleReveal.textContent = "WAITING FOR ASSIGNMENT";
+        }
+
+        let roleClass = '';
+        if (me.role === 'mafia') roleClass = 'mafia-role';
+        else if (me.role && me.role !== 'villager') roleClass = 'special-role';
+        else roleClass = 'villager-role';
+        roleReveal.className = `role-reveal ${roleClass}`;
+
+        overlay.style.display = 'flex';
+      }
+
+      function closeOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+      }
+
+      function startGame() {
+        google.script.run.withSuccessHandler(renderRoom).startGame(currentRoomId, currentPlayerId);
+      }
+      function advanceToDiscussion() {
+        google.script.run.withSuccessHandler(renderRoom).advanceToDay(currentRoomId, currentPlayerId);
+      }
+      function beginDayPhase() {
+        google.script.run.withSuccessHandler(renderRoom).beginDay(currentRoomId, currentPlayerId);
+      }
+      function resolveDay() {
+        google.script.run.withSuccessHandler(renderRoom).resolveDay(currentRoomId, currentPlayerId);
+      }
+      function submitNightTarget() {
+        const tid = document.getElementById('nightTargetSelect').value;
+        google.script.run.withSuccessHandler(renderRoom).submitNightTarget(currentRoomId, currentPlayerId, tid);
+      }
+      function submitVote() {
+        const tid = document.getElementById('voteSelect').value;
+        google.script.run.withSuccessHandler(renderRoom).submitVote(currentRoomId, currentPlayerId, tid);
+      }
+    </script>
+  </body>
+</html>
