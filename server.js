@@ -358,7 +358,7 @@ io.on('connection', (socket) => {
 
     room.phase = 'discussion';
     room.votes = {};
-    room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {} };
+    room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {} };
     room.lastDeathMessage = deathMsg;
     room.lastVoteSummary = null;
 
@@ -486,7 +486,7 @@ io.on('connection', (socket) => {
     } else {
       room.phase = 'night';
       room.votes = {};
-      room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {} };
+      room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {} };
     }
 
     room.lastDeathMessage = dayMsg;
@@ -523,6 +523,25 @@ io.on('connection', (socket) => {
       room.chat = room.chat.slice(room.chat.length - 200);
     }
 
+    rooms.set(roomId, room);
+    io.to(roomId).emit('roomUpdated', room);
+  });
+
+  // Reveal as mayor
+  socket.on('revealMayor', ({ roomId, playerId }) => {
+    const room = rooms.get(roomId);
+    if (!room) {
+      socket.emit('error', 'Room not found');
+      return;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || !player.alive || player.role !== 'mayor') {
+      socket.emit('error', 'Unauthorized');
+      return;
+    }
+
+    player.mayorRevealed = true;
     rooms.set(roomId, room);
     io.to(roomId).emit('roomUpdated', room);
   });
