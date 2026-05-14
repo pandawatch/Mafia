@@ -414,7 +414,15 @@ io.on('connection', (socket) => {
     const tally = {};
     Object.keys(room.votes).forEach(pid => {
       const tid = room.votes[pid];
-      tally[tid] = (tally[tid] || 0) + 1;
+      let voteCount = 1;
+      
+      // Double vote for revealed mayor
+      const voter = room.players.find(p => p.id === pid);
+      if (voter && voter.role === 'mayor' && voter.mayorRevealed && voter.alive) {
+        voteCount = 2;
+      }
+      
+      tally[tid] = (tally[tid] || 0) + voteCount;
     });
 
     const summaryLines = [];

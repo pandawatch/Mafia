@@ -238,6 +238,10 @@
          <button onclick="submitVote()" style="width:100%; margin-top:5px;">Vote</button>
       </div>
 
+      <div id="mayorControls" style="display:none; margin-top:10px;">
+         <button onclick="revealMayor()" style="width:100%; background:#ffd700; color:black;">Reveal as Mayor (Double Vote)</button>
+      </div>
+
       <div id="voteSummary" style="margin-top:10px; font-size:0.9em; white-space:pre-line;"></div>
 
       <div class="card" style="margin-top:20px;">
@@ -262,7 +266,8 @@
         bodyguard: "Guard someone. If they are attacked, YOU take the hit instead.",
         seer: "Inspect one player each night to learn their role (Jester appears unclear).",
         jester: "Try to get voted out during the day. If you do, you win instantly.",
-        mason: "You know the other Masons and can trust them completely."
+        mason: "You know the other Masons and can trust them completely.",
+        mayor: "Block one player's night action each night. Reveal yourself to double your vote."
       };
 
       const ROLE_ICONS = {
@@ -272,7 +277,8 @@
         bodyguard: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ffaa00"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6z"/></svg>`,
         seer: `<svg class="role-icon" viewBox="0 0 24 24" fill="#9c27b0"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg>`,
         jester: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ff66ff"><path d="M12 2c-2 3-5 4-8 2 1 4 0 7-2 9 3 0 5 1 6 4 1-3 3-4 6-4-2-2-3-5-2-9-3 2-6 1-8-2z"/></svg>`,
-        mason: `<svg class="role-icon" viewBox="0 0 24 24" fill="#00e5ff"><path d="M12 2l10 18H2z"/></svg>`
+        mason: `<svg class="role-icon" viewBox="0 0 24 24" fill="#00e5ff"><path d="M12 2l10 18H2z"/></svg>`,
+        mayor: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ffd700"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
       };
 
       function openRoleGuide() {
@@ -313,6 +319,11 @@
         <p>${ROLE_ICONS.mason}<strong>Mason</strong><br>
         You are part of a secret group of confirmed innocent players. You know the other Masons and can trust them
         completely. Work together quietly to guide the town without revealing yourselves too early.</p>
+
+        <p>${ROLE_ICONS.mayor}<strong>Mayor</strong><br>
+        You have two powerful abilities: Each night, you can block one player's night action, preventing them from
+        using their ability. You can also reveal yourself during the day to double your vote count. Use these powers
+        strategically — revealing too early makes you a target.</p>
 
         <button id="closeGuideBtn" onclick="closeRoleGuide()">Close</button>
       `;
@@ -355,6 +366,11 @@
         document.getElementById('gameError').textContent = message;
       });
 
+      socket.on('mayorRevealed', (data) => {
+        // The room update will handle the UI changes
+        console.log('Mayor revealed:', data.playerName);
+      });
+
       function enterGame(room) {
         document.getElementById('authCard').style.display = 'none';
         document.getElementById('gameCard').style.display = 'block';
@@ -380,6 +396,9 @@
         let me = room.players.find(p => p.id === currentPlayerId);
 
         let roleText = me.role ? me.role.toUpperCase() : 'Waiting...';
+        if (me.role === 'mayor' && me.mayorRevealed) {
+          roleText = 'MAYOR (REVEALED)';
+        }
         let roleClass = 'villager-role';
         if (me.role === 'mafia') roleClass = 'mafia-role';
         else if (me.role && me.role !== 'villager') roleClass = 'special-role';
@@ -421,13 +440,14 @@
 
         const canAct = me && me.alive;
 
-        if (canAct && room.phase === 'night' && ['mafia','doctor','bodyguard','seer'].includes(me.role)) {
+        if (canAct && room.phase === 'night' && ['mafia','doctor','bodyguard','seer','mayor'].includes(me.role)) {
           document.getElementById('nightControls').style.display = 'block';
           const label = document.getElementById('nightLabel');
           if (me.role === 'mafia') label.textContent = "Choose someone to target (or 'No Action'):";
           if (me.role === 'doctor') label.textContent = "Choose someone to protect (or 'No Action'):";
           if (me.role === 'bodyguard') label.textContent = "Choose someone to guard (or 'No Action'):";
           if (me.role === 'seer') label.textContent = "Choose someone to inspect (or 'No Action'):";
+          if (me.role === 'mayor') label.textContent = "Choose someone to block (or 'No Action'):";
         } else {
           document.getElementById('nightControls').style.display = 'none';
         }
@@ -435,10 +455,14 @@
         document.getElementById('dayControls').style.display =
           (canAct && room.phase === 'day') ? 'block' : 'none';
 
+        document.getElementById('mayorControls').style.display =
+          (canAct && room.phase === 'day' && me.role === 'mayor' && !me.mayorRevealed) ? 'block' : 'none';
+
         // Discussion phase: no controls, just chat
         if (room.phase === 'discussion') {
           document.getElementById('nightControls').style.display = 'none';
           document.getElementById('dayControls').style.display = 'none';
+          document.getElementById('mayorControls').style.display = 'none';
         }
 
         populateNightSelect('nightTargetSelect', room.players, me);
@@ -539,6 +563,10 @@
       function submitVote() {
         const tid = document.getElementById('voteSelect').value;
         socket.emit('submitVote', { roomId: currentRoomId, playerId: currentPlayerId, targetId: tid });
+      }
+
+      function revealMayor() {
+        socket.emit('revealMayor', { roomId: currentRoomId, playerId: currentPlayerId });
       }
     </script>
   </body>
