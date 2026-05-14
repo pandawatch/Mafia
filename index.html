@@ -12,7 +12,26 @@
         padding: 16px;
         background: #050505;
         color: #d1d1d1;
-        background-image: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+        background-image: 
+          radial-gradient(circle at 20% 80%, rgba(139, 0, 0, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(139, 0, 0, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 40% 40%, rgba(139, 0, 0, 0.05) 0%, transparent 50%),
+          linear-gradient(135deg, #1a1a1a 0%, #050505 100%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image: 
+          radial-gradient(circle at 30% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 30%),
+          radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.01) 0%, transparent 30%);
+        pointer-events: none;
+        z-index: -1;
       }
       h1 {
         text-align: center;
@@ -27,7 +46,13 @@
         border-radius: 4px;
         padding: 20px;
         margin-bottom: 12px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+      }
+      .card:hover {
+        box-shadow: 0 15px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.2);
+        transform: translateY(-2px);
       }
       input, select, textarea {
         padding: 10px;
@@ -38,15 +63,33 @@
       }
       button {
         cursor: pointer;
-        background: #8b0000;
+        background: linear-gradient(135deg, #8b0000, #660000);
         color: white;
         border: none;
         padding: 10px 20px;
         text-transform: uppercase;
         font-family: 'Special Elite', cursive;
-        transition: 0.3s;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(139, 0, 0, 0.3);
+        position: relative;
+        overflow: hidden;
       }
-      button:hover { background: #660000; }
+      button::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+      }
+      button:hover::before {
+        left: 100%;
+      }
+      button:hover { 
+        background: linear-gradient(135deg, #660000, #8b0000);
+        box-shadow: 0 6px 20px rgba(139, 0, 0, 0.5);
+        transform: translateY(-2px);
+      }
       button.secondary { background: #333; }
       .alive { color: #55efc4; }
       .dead { color: #ff7675; text-decoration: line-through; opacity: 0.6; }
@@ -63,11 +106,78 @@
         text-align: center;
         animation: fadeIn 1s forwards;
       }
-      #overlay h2 { font-size: 3em; color: #8b0000; margin-bottom: 10px; }
-      #overlay p { font-size: 1.5em; max-width: 80%; line-height: 1.6; white-space: pre-line; }
-      #overlay .role-reveal { font-size: 2em; color: #fff; margin-top: 20px; border: 1px solid #8b0000; padding: 10px 30px; }
+      #overlay h2 { 
+        font-size: 3em; 
+        color: #8b0000; 
+        margin-bottom: 10px; 
+        text-shadow: 0 0 20px #8b0000;
+        animation: glow 2s ease-in-out infinite alternate;
+      }
+      #overlay p { 
+        font-size: 1.5em; 
+        max-width: 80%; 
+        line-height: 1.6; 
+        white-space: pre-line;
+        animation: textFadeIn 1.5s ease-out 0.5s both;
+      }
+      #overlay .role-reveal { 
+        font-size: 2em; 
+        color: #fff; 
+        margin-top: 20px; 
+        border: 1px solid #8b0000; 
+        padding: 10px 30px;
+        animation: roleReveal 1s ease-out 1s both;
+      }
 
-      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes fadeIn { 
+        from { opacity: 0; } 
+        to { opacity: 1; } 
+      }
+      @keyframes glow {
+        from { text-shadow: 0 0 20px #8b0000; }
+        to { text-shadow: 0 0 30px #8b0000, 0 0 40px #8b0000; }
+      }
+      @keyframes textFadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes roleReveal {
+        from { opacity: 0; transform: scale(0.8); }
+        to { opacity: 1; transform: scale(1); }
+      }
+
+      /* Death cutscene animations */
+      .death-cutscene {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2em;
+        color: #ff0000;
+        text-shadow: 0 0 20px #ff0000;
+        animation: deathFlash 0.5s ease-out;
+      }
+
+      @keyframes deathFlash {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+        50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+      }
+
+      .silhouette {
+        position: absolute;
+        bottom: 20%;
+        right: 10%;
+        width: 100px;
+        height: 150px;
+        background: linear-gradient(to top, #000, #333);
+        border-radius: 50px 50px 0 0;
+        animation: walkAway 3s ease-out forwards;
+      }
+
+      @keyframes walkAway {
+        0% { right: 10%; opacity: 1; }
+        100% { right: -20%; opacity: 0; }
+      }
 
       .mafia-role { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
       .villager-role { color: #00ff00; text-shadow: 0 0 10px #00ff00; }
@@ -232,6 +342,19 @@
          <button onclick="submitNightTarget()" style="width:100%; margin-top:5px;">Confirm Night Action</button>
       </div>
 
+      <div id="witchControls" style="display:none; margin-top:20px;">
+         <div id="witchSaveSection" style="margin-bottom:10px;">
+            <label>Save someone:</label><br>
+            <select id="witchSaveSelect" style="width:100%"></select>
+            <button onclick="submitWitchSave()" style="width:100%; margin-top:5px; background:#00bcd4;">Save</button>
+         </div>
+         <div id="witchKillSection">
+            <label>Kill someone:</label><br>
+            <select id="witchKillSelect" style="width:100%"></select>
+            <button onclick="submitWitchKill()" style="width:100%; margin-top:5px; background:#9932cc;">Kill</button>
+         </div>
+      </div>
+
       <div id="dayControls" style="display:none; margin-top:20px;">
          <label>Cast your suspicion (or choose 'Skip'):</label><br>
          <select id="voteSelect" style="width:100%"></select>
@@ -240,6 +363,12 @@
 
       <div id="mayorControls" style="display:none; margin-top:10px;">
          <button onclick="revealMayor()" style="width:100%; background:#ffd700; color:black;">Reveal as Mayor (Double Vote)</button>
+      </div>
+
+      <div id="vigilanteControls" style="display:none; margin-top:10px;">
+         <label>Use your one-time kill (cannot be undone):</label><br>
+         <select id="vigilanteSelect" style="width:100%"></select>
+         <button onclick="useVigilanteKill()" style="width:100%; margin-top:5px; background:#ff4500;">Kill Player</button>
       </div>
 
       <div id="voteSummary" style="margin-top:10px; font-size:0.9em; white-space:pre-line;"></div>
@@ -267,7 +396,13 @@
         seer: "Inspect one player each night to learn their role (Jester appears unclear).",
         jester: "Try to get voted out during the day. If you do, you win instantly.",
         mason: "You know the other Masons and can trust them completely.",
-        mayor: "Block one player's night action each night. Reveal yourself to double your vote."
+        mayor: "Block one player's night action each night. Reveal yourself to double your vote.",
+        serialkiller: "Kill one player each night. You win alone when everyone else is dead.",
+        witch: "Save someone from death or kill someone once each per game.",
+        vigilante: "Kill one player during the day once. Choose wisely.",
+        investigator: "Learn if someone is innocent or guilty each night.",
+        godfather: "Lead the Mafia. You appear as a Villager to the Seer.",
+        executioner: "You win if your assigned target is voted out during the day."
       };
 
       const ROLE_ICONS = {
@@ -278,7 +413,13 @@
         seer: `<svg class="role-icon" viewBox="0 0 24 24" fill="#9c27b0"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/></svg>`,
         jester: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ff66ff"><path d="M12 2c-2 3-5 4-8 2 1 4 0 7-2 9 3 0 5 1 6 4 1-3 3-4 6-4-2-2-3-5-2-9-3 2-6 1-8-2z"/></svg>`,
         mason: `<svg class="role-icon" viewBox="0 0 24 24" fill="#00e5ff"><path d="M12 2l10 18H2z"/></svg>`,
-        mayor: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ffd700"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`
+        mayor: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ffd700"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
+        serialkiller: `<svg class="role-icon" viewBox="0 0 24 24" fill="#8b0000"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
+        witch: `<svg class="role-icon" viewBox="0 0 24 24" fill="#9932cc"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z"/></svg>`,
+        vigilante: `<svg class="role-icon" viewBox="0 0 24 24" fill="#ff4500"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6z"/></svg>`,
+        investigator: `<svg class="role-icon" viewBox="0 0 24 24" fill="#daa520"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6z"/></svg>`,
+        godfather: `<svg class="role-icon" viewBox="0 0 24 24" fill="#dc143c"><circle cx="12" cy="12" r="10"/></svg>`,
+        executioner: `<svg class="role-icon" viewBox="0 0 24 24" fill="#2f4f4f"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6z"/></svg>`
       };
 
       function openRoleGuide() {
@@ -287,6 +428,36 @@
 
       function closeRoleGuide() {
         document.getElementById('roleGuideModal').style.display = 'none';
+      }
+
+      function closeOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+      }
+
+      function showOverlay(title, message, roleReveal = '') {
+        document.getElementById('overlayTitle').textContent = title;
+        document.getElementById('overlayMessage').textContent = message;
+        document.getElementById('overlayRole').textContent = roleReveal;
+        
+        // Clear any existing cutscenes
+        const existingCutscenes = document.querySelectorAll('.death-cutscene, .silhouette');
+        existingCutscenes.forEach(el => el.remove());
+        
+        // Add cutscenes based on message content
+        if (message.includes('shown the exit') || message.includes('voted out')) {
+          const silhouette = document.createElement('div');
+          silhouette.className = 'silhouette';
+          document.getElementById('overlay').appendChild(silhouette);
+        }
+        
+        if (message.includes('was found') || message.includes('eliminated') || message.includes('killed')) {
+          const deathEffect = document.createElement('div');
+          deathEffect.className = 'death-cutscene';
+          deathEffect.textContent = '💀';
+          document.getElementById('overlay').appendChild(deathEffect);
+        }
+        
+        document.getElementById('overlay').style.display = 'flex';
       }
 
       document.getElementById("roleGuideContent").innerHTML = `
@@ -325,10 +496,33 @@
         using their ability. You can also reveal yourself during the day to double your vote count. Use these powers
         strategically — revealing too early makes you a target.</p>
 
-        <button id="closeGuideBtn" onclick="closeRoleGuide()">Close</button>
+        <p>${ROLE_ICONS.serialkiller}<strong>Serial Killer</strong><br>
+        You are a lone wolf who kills one player each night. You bypass most protections and win when you are the
+        last player standing. The town and Mafia will both try to eliminate you.</p>
+
+        <p>${ROLE_ICONS.witch}<strong>Witch</strong><br>
+        You have two potions: one to save someone from death, and one to kill someone. Each can only be used once
+        per game. Choose your moments wisely — your powers are limited but powerful.</p>
+
+        <p>${ROLE_ICONS.vigilante}<strong>Vigilante</strong><br>
+        You can kill one player during the day once per game. If you kill a Mafia member, great! If you kill an
+        innocent, you might become the next target. Use this power carefully.</p>
+
+        <p>${ROLE_ICONS.investigator}<strong>Investigator</strong><br>
+        Each night, you can investigate one player to learn if they are "innocent" or "guilty." Guilty players
+        include Mafia, Godfather, and Serial Killer. Use this information to guide your votes.</p>
+
+        <p>${ROLE_ICONS.godfather}<strong>Godfather</strong><br>
+        You lead the Mafia and appear as a Villager to the Seer. Work with your Mafia allies to eliminate the
+        town while maintaining your cover. The Seer will not see your true nature.</p>
+
+        <p>${ROLE_ICONS.executioner}<strong>Executioner</strong><br>
+        You have a secret target assigned at the start of the game. You win if that player is voted out during
+        the day. Help the town eliminate your target while protecting yourself.</p>
       `;
 
       let currentRoomId = null, currentPlayerId = null, currentPlayerName = null;
+      let lastShownMessage = null;
 
       function createRoom() {
         const name = document.getElementById('playerName').value.trim();
@@ -384,6 +578,20 @@
         document.getElementById('phaseLabel').textContent = room.phase;
         document.getElementById('winnerLabel').textContent = room.phase === 'ended' ? `VICTORY: ${room.winner.toUpperCase()}` : '';
 
+        // Show overlay for death messages
+        if (room.lastDeathMessage && room.lastDeathMessage !== lastShownMessage) {
+          let title = 'THE SUN RISES';
+          if (room.phase === 'discussion') {
+            title = 'THE SUN RISES';
+          } else if (room.phase === 'ended') {
+            title = 'GAME OVER';
+          } else if (room.phase === 'day') {
+            title = 'THE VOTE IS IN';
+          }
+          showOverlay(title, room.lastDeathMessage);
+          lastShownMessage = room.lastDeathMessage;
+        }
+
         const isHost = room.hostId === currentPlayerId;
         document.getElementById('hostControls').style.display = isHost ? 'block' : 'none';
         document.getElementById('startBtn').style.display = room.phase === 'lobby' ? 'inline-block' : 'none';
@@ -400,7 +608,7 @@
           roleText = 'MAYOR (REVEALED)';
         }
         let roleClass = 'villager-role';
-        if (me.role === 'mafia') roleClass = 'mafia-role';
+        if (me.role === 'mafia' || me.role === 'godfather') roleClass = 'mafia-role';
         else if (me.role && me.role !== 'villager') roleClass = 'special-role';
 
         document.getElementById('roleLabel').textContent = roleText;
@@ -426,8 +634,17 @@
             infoLines.push("You trust these Masons: " + others.map(o => o.name).join(", "));
           }
         }
+        if (me.role === 'executioner' && room.myExecutionerTarget) {
+          const target = room.players.find(p => p.id === room.myExecutionerTarget);
+          if (target) {
+            infoLines.push("Your target: " + target.name);
+          }
+        }
         if (room.mySeerResult) {
           infoLines.push("Seer vision: " + room.mySeerResult);
+        }
+        if (room.myInvestigatorResults && room.myInvestigatorResults.length > 0) {
+          infoLines.push("Investigations: " + room.myInvestigatorResults.join(" | "));
         }
         extraInfo.textContent = infoLines.join(" | ");
 
@@ -440,7 +657,7 @@
 
         const canAct = me && me.alive;
 
-        if (canAct && room.phase === 'night' && ['mafia','doctor','bodyguard','seer','mayor'].includes(me.role)) {
+        if (canAct && room.phase === 'night' && ['mafia','doctor','bodyguard','seer','mayor','serialkiller','investigator'].includes(me.role)) {
           document.getElementById('nightControls').style.display = 'block';
           const label = document.getElementById('nightLabel');
           if (me.role === 'mafia') label.textContent = "Choose someone to target (or 'No Action'):";
@@ -448,8 +665,33 @@
           if (me.role === 'bodyguard') label.textContent = "Choose someone to guard (or 'No Action'):";
           if (me.role === 'seer') label.textContent = "Choose someone to inspect (or 'No Action'):";
           if (me.role === 'mayor') label.textContent = "Choose someone to block (or 'No Action'):";
+          if (me.role === 'serialkiller') label.textContent = "Choose someone to kill (or 'No Action'):";
+          if (me.role === 'witch') {
+            if (!me.witchSaveUsed && !me.witchKillUsed) {
+              label.textContent = "Choose: Save someone or Kill someone (or 'No Action'):";
+            } else if (!me.witchSaveUsed) {
+              label.textContent = "Choose someone to save (or 'No Action'):";
+            } else if (!me.witchKillUsed) {
+              label.textContent = "Choose someone to kill (or 'No Action'):";
+            } else {
+              label.textContent = "Your potions are used up.";
+              document.getElementById('nightControls').style.display = 'none';
+            }
+          }
+          if (me.role === 'investigator') label.textContent = "Choose someone to investigate (or 'No Action'):";
         } else {
           document.getElementById('nightControls').style.display = 'none';
+        }
+
+        // Witch controls
+        if (canAct && room.phase === 'night' && me.role === 'witch') {
+          document.getElementById('witchControls').style.display = 'block';
+          document.getElementById('witchSaveSection').style.display = me.witchSaveUsed ? 'none' : 'block';
+          document.getElementById('witchKillSection').style.display = me.witchKillUsed ? 'none' : 'block';
+          populateWitchSelect('witchSaveSelect', room.players, me);
+          populateWitchSelect('witchKillSelect', room.players, me);
+        } else {
+          document.getElementById('witchControls').style.display = 'none';
         }
 
         document.getElementById('dayControls').style.display =
@@ -457,6 +699,9 @@
 
         document.getElementById('mayorControls').style.display =
           (canAct && room.phase === 'day' && me.role === 'mayor' && !me.mayorRevealed) ? 'block' : 'none';
+
+        document.getElementById('vigilanteControls').style.display =
+          (canAct && room.phase === 'day' && me.role === 'vigilante' && !me.vigilanteKillUsed) ? 'block' : 'none';
 
         // Discussion phase: no controls, just chat
         if (room.phase === 'discussion') {
@@ -467,6 +712,7 @@
 
         populateNightSelect('nightTargetSelect', room.players, me);
         populateVoteSelect('voteSelect', room.players, me);
+        populateVigilanteSelect('vigilanteSelect', room.players, me);
 
         document.getElementById('voteSummary').textContent = room.lastVoteSummary || "";
 
@@ -494,17 +740,31 @@
         });
       }
 
-      function populateVoteSelect(id, players, me) {
+      function populateVigilanteSelect(id, players, me) {
         const select = document.getElementById(id);
         select.innerHTML = '';
 
-        let skipOpt = document.createElement('option');
-        skipOpt.value = 'skip';
-        skipOpt.textContent = 'Skip (no one)';
-        select.appendChild(skipOpt);
-
         players.forEach(p => {
           if (p.alive && p.id !== currentPlayerId) {
+            let opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            select.appendChild(opt);
+          }
+        });
+      }
+
+      function populateWitchSelect(id, players, me) {
+        const select = document.getElementById(id);
+        select.innerHTML = '';
+
+        let noneOpt = document.createElement('option');
+        noneOpt.value = 'none';
+        noneOpt.textContent = 'No Action';
+        select.appendChild(noneOpt);
+
+        players.forEach(p => {
+          if (p.alive) {
             let opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = p.name;
@@ -567,6 +827,22 @@
 
       function revealMayor() {
         socket.emit('revealMayor', { roomId: currentRoomId, playerId: currentPlayerId });
+      }
+
+      function useVigilanteKill() {
+        const tid = document.getElementById('vigilanteSelect').value;
+        if (!tid) return;
+        socket.emit('useVigilanteKill', { roomId: currentRoomId, playerId: currentPlayerId, targetId: tid });
+      }
+
+      function submitWitchSave() {
+        const tid = document.getElementById('witchSaveSelect').value;
+        socket.emit('submitWitchSave', { roomId: currentRoomId, playerId: currentPlayerId, targetId: tid });
+      }
+
+      function submitWitchKill() {
+        const tid = document.getElementById('witchKillSelect').value;
+        socket.emit('submitWitchKill', { roomId: currentRoomId, playerId: currentPlayerId, targetId: tid });
       }
     </script>
   </body>

@@ -5,9 +5,11 @@ A real-time multiplayer Mafia (Werewolf) game built with Node.js, Express, and S
 ## Features
 
 - Real-time multiplayer gameplay
-- Multiple roles: Mafia, Villager, Doctor, Bodyguard, Seer, Jester, Mason
+- Multiple roles with unique mechanics
+- Atmospheric dark theme with animations and cutscenes
+- Death messages and popups after each game phase
 - Chat system for communication
-- Responsive design with dark theme
+- Responsive design
 - Runs in GitHub Codespaces
 
 ## How to Run
@@ -36,18 +38,40 @@ The game will load `index.html` which contains the updated real-time multiplayer
    - **Discussion**: Players discuss suspicions
    - **Day**: Players vote to eliminate someone
 5. **Win Conditions**:
-   - **Mafia**: Eliminate all town members
+   - **Mafia/Godfather**: Eliminate all town members
    - **Town**: Eliminate all Mafia members
    - **Jester**: Get voted out during the day
+   - **Serial Killer**: Be the last player standing
+   - **Executioner**: Get your assigned target voted out
 
 ## Roles
 
-- **Mafia**: Work together to eliminate town members at night
+### Town Roles
 - **Villager**: No special powers, discuss and vote wisely
 - **Doctor**: Protect one player each night from attacks
 - **Bodyguard**: Guard someone at night, taking hits instead
-- **Seer**: Inspect one player's role each night
+- **Seer**: Inspect one player's role each night (Godfather appears as Villager)
+- **Mason**: Know other Masons and can trust them
+- **Mayor**: Block one player's night action, double vote when revealed
+- **Investigator**: Learn if someone is innocent or guilty each night
+- **Vigilante**: Kill one player during the day (one-time use)
+
+### Mafia Roles
+- **Mafia**: Work together to eliminate town members at night
+- **Godfather**: Lead the Mafia, appear as Villager to Seer
+
+### Neutral Roles
 - **Jester**: Win by getting voted out during the day
+- **Serial Killer**: Kill one player each night, win alone
+- **Witch**: Save someone from death or kill someone (each once per game)
+- **Executioner**: Win if your assigned target gets voted out
+
+## New Features
+
+- **Death Messages & Popups**: Dramatic overlays show after each phase with death announcements
+- **Cutscenes**: Visual effects like walking silhouettes for certain death messages
+- **Enhanced Atmosphere**: Improved styling with gradients, animations, and atmospheric effects
+- **More Roles**: 6 new roles with unique mechanics for deeper gameplay
 - **Mason**: Know other Masons and can trust them
 
 ## Controls

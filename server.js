@@ -35,7 +35,12 @@ function createPlayer(name, socketId) {
     alive: true,
     role: null,
     seerResult: null,
-    mayorRevealed: false
+    mayorRevealed: false,
+    witchSaveUsed: false,
+    witchKillUsed: false,
+    vigilanteKillUsed: false,
+    executionerTarget: null,
+    investigatorResults: []
   };
 }
 
@@ -71,6 +76,25 @@ function buildRolesForCount(count) {
   else if (count >= 7) masonCount = 2;
   for (let i = 0; i < masonCount; i++) roles.push('mason');
 
+  // New roles
+  // Serial Killer: 1 if >=12, wins alone by killing everyone
+  if (count >= 12) roles.push('serialkiller');
+
+  // Witch: 1 if >=11, can save or kill once per game
+  if (count >= 11) roles.push('witch');
+
+  // Vigilante: 1 if >=13, can kill during day once
+  if (count >= 13) roles.push('vigilante');
+
+  // Investigator: 1 if >=15, gets alignment info
+  if (count >= 15) roles.push('investigator');
+
+  // Godfather: 1 if >=16, appears as villager to seer, leads mafia
+  if (count >= 16) roles.push('godfather');
+
+  // Executioner: 1 if >=14, wins if their target is voted out
+  if (count >= 14) roles.push('executioner');
+
   // Fill the rest with villagers
   while (roles.length < count) {
     roles.push('villager');
@@ -95,11 +119,15 @@ function getSafeRoomState(room, playerId) {
     if (p.id !== playerId && room.phase !== 'ended') {
       p.role = null;
       p.seerResult = null;
+      p.investigatorResults = null;
+      p.executionerTarget = null;
     }
   });
 
   const me = room.players.find(p => p.id === playerId);
   safeRoom.mySeerResult = me ? me.seerResult : null;
+  safeRoom.myInvestigatorResults = me ? me.investigatorResults : null;
+  safeRoom.myExecutionerTarget = me ? me.executionerTarget : null;
 
   return safeRoom;
 }
@@ -123,7 +151,11 @@ io.on('connection', (socket) => {
         doctor: {},
         bodyguard: {},
         seer: {},
-        mayor: {}
+        mayor: {},
+        serialkiller: {},
+        witchSave: {},
+        witchKill: {},
+        investigator: {}
       },
       lastDeathMessage: null,
       lastVoteSummary: null,
@@ -181,11 +213,25 @@ io.on('connection', (socket) => {
       room.players[i].role = roles[i];
       room.players[i].alive = true;
       room.players[i].seerResult = null;
+      room.players[i].witchSaveUsed = false;
+      room.players[i].witchKillUsed = false;
+      room.players[i].vigilanteKillUsed = false;
+      room.players[i].mayorRevealed = false;
+      room.players[i].investigatorResults = [];
+
+      // Assign executioner target
+      if (room.players[i].role === 'executioner') {
+        const possibleTargets = room.players.filter(p => p.id !== room.players[i].id && p.role !== 'jester');
+        if (possibleTargets.length > 0) {
+          const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+          room.players[i].executionerTarget = target.id;
+        }
+      }
     }
 
     room.phase = 'night';
     room.votes = {};
-    room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {} };
+    room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {}, serialkiller: {}, witchSave: {}, witchKill: {}, investigator: {} };
     room.lastDeathMessage = "Night falls. Shadows stretch across the town as everyone quietly locks their doors...";
     room.lastVoteSummary = null;
     room.winner = null;
@@ -214,6 +260,12 @@ io.on('connection', (socket) => {
       if (player.role === 'bodyguard') delete room.nightActions.bodyguard[playerId];
       if (player.role === 'seer') delete room.nightActions.seer[playerId];
       if (player.role === 'mayor') delete room.nightActions.mayor[playerId];
+      if (player.role === 'serialkiller') delete room.nightActions.serialkiller[playerId];
+      if (player.role === 'witch') {
+        delete room.nightActions.witchSave[playerId];
+        delete room.nightActions.witchKill[playerId];
+      }
+      if (player.role === 'investigator') delete room.nightActions.investigator[playerId];
       rooms.set(roomId, room);
       io.to(roomId).emit('roomUpdated', room);
       return;
@@ -229,6 +281,17 @@ io.on('connection', (socket) => {
       room.nightActions.seer[playerId] = targetId;
     } else if (player.role === 'mayor') {
       room.nightActions.mayor[playerId] = targetId;
+    } else if (player.role === 'serialkiller') {
+      room.nightActions.serialkiller[playerId] = targetId;
+    } else if (player.role === 'witch') {
+      // For now, assume save action. In real implementation, need separate UI
+      if (!player.witchSaveUsed) {
+        room.nightActions.witchSave[playerId] = targetId;
+      } else if (!player.witchKillUsed) {
+        room.nightActions.witchKill[playerId] = targetId;
+      }
+    } else if (player.role === 'investigator') {
+      room.nightActions.investigator[playerId] = targetId;
     } else {
       socket.emit('error', 'This role has no night action');
       return;
@@ -302,9 +365,60 @@ io.on('connection', (socket) => {
           let seenRole = target.role;
           if (seenRole === 'jester') {
             seerPlayer.seerResult = target.name + " feels... off. Their role is unclear.";
+          } else if (seenRole === 'godfather') {
+            seerPlayer.seerResult = target.name + " is a VILLAGER.";
           } else {
             seerPlayer.seerResult = target.name + " is a " + seenRole.toUpperCase() + ".";
           }
+        }
+      }
+    });
+
+    // Investigator gets alignment info
+    const investigatorVotes = room.nightActions.investigator || {};
+    Object.keys(investigatorVotes).forEach(invPid => {
+      if (!blockedPlayers.has(invPid)) {
+        const targetId = investigatorVotes[invPid];
+        const invPlayer = room.players.find(p => p.id === invPid);
+        const target = room.players.find(p => p.id === targetId);
+        if (invPlayer && invPlayer.alive && target) {
+          let alignment = 'innocent';
+          if (target.role === 'mafia' || target.role === 'godfather' || target.role === 'serialkiller') {
+            alignment = 'guilty';
+          }
+          invPlayer.investigatorResults.push(target.name + " appears " + alignment + ".");
+        }
+      }
+    });
+
+    // Serial Killer kills
+    let serialKillTarget = null;
+    const skVotes = room.nightActions.serialkiller || {};
+    Object.keys(skVotes).forEach(pid => {
+      if (!blockedPlayers.has(pid)) {
+        serialKillTarget = skVotes[pid];
+      }
+    });
+
+    // Witch actions (save or kill)
+    let witchSaveTarget = null, witchKillTarget = null;
+    const witchSaveVotes = room.nightActions.witchSave || {};
+    const witchKillVotes = room.nightActions.witchKill || {};
+    Object.keys(witchSaveVotes).forEach(pid => {
+      if (!blockedPlayers.has(pid)) {
+        const witchPlayer = room.players.find(p => p.id === pid);
+        if (witchPlayer && !witchPlayer.witchSaveUsed) {
+          witchSaveTarget = witchSaveVotes[pid];
+          witchPlayer.witchSaveUsed = true;
+        }
+      }
+    });
+    Object.keys(witchKillVotes).forEach(pid => {
+      if (!blockedPlayers.has(pid)) {
+        const witchPlayer = room.players.find(p => p.id === pid);
+        if (witchPlayer && !witchPlayer.witchKillUsed) {
+          witchKillTarget = witchKillVotes[pid];
+          witchPlayer.witchKillUsed = true;
         }
       }
     });
@@ -315,8 +429,9 @@ io.on('connection', (socket) => {
         const bodyguard = room.players.find(p => p.role === 'bodyguard' && p.alive);
         const bodyguardTakesHit = bodyguard && bodyguardTargetId === mafiaTargetId;
         const doctorSaves = doctorTargetId === mafiaTargetId || (bodyguardTakesHit && doctorTargetId === bodyguard.id);
+        const witchSaves = witchSaveTarget === mafiaTargetId;
 
-        if (bodyguardTakesHit && !doctorSaves) {
+        if (bodyguardTakesHit && !doctorSaves && !witchSaves) {
           bodyguard.alive = false;
           killedPlayer = bodyguard;
           const bgMsgs = [
@@ -327,7 +442,7 @@ io.on('connection', (socket) => {
             "The attack hit, but {name} was standing in the way with dramatic timing."
           ];
           deathMsg = bgMsgs[Math.floor(Math.random() * bgMsgs.length)].replace("{name}", bodyguard.name);
-        } else if (!doctorSaves) {
+        } else if (!doctorSaves && !witchSaves) {
           target.alive = false;
           killedPlayer = target;
           const msgs = [
@@ -356,9 +471,51 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Serial Killer kills (bypasses protections)
+    if (serialKillTarget) {
+      const skTarget = room.players.find(p => p.id === serialKillTarget);
+      if (skTarget && skTarget.alive) {
+        skTarget.alive = false;
+        const skMsgs = [
+          "{name} was found with a single, precise wound. The work of a professional.",
+          "A shadow moved through the night. {name} never saw it coming.",
+          "{name} met their end at the hands of someone who enjoys their work too much.",
+          "The Serial Killer struck again. {name} was the unfortunate target.",
+          "{name} discovered that some people just really like knives."
+        ];
+        if (killedPlayer) {
+          deathMsg += " Also, " + skMsgs[Math.floor(Math.random() * skMsgs.length)].replace("{name}", skTarget.name);
+        } else {
+          deathMsg = skMsgs[Math.floor(Math.random() * skMsgs.length)].replace("{name}", skTarget.name);
+          killedPlayer = skTarget;
+        }
+      }
+    }
+
+    // Witch kills
+    if (witchKillTarget) {
+      const witchKillPlayer = room.players.find(p => p.id === witchKillTarget);
+      if (witchKillPlayer && witchKillPlayer.alive) {
+        witchKillPlayer.alive = false;
+        const witchMsgs = [
+          "{name} drank from a mysterious potion and never woke up.",
+          "A witch's curse claimed {name} in the dead of night.",
+          "{name} found a strange bottle and curiosity got the better of them.",
+          "The witch brewed a deadly concoction. {name} was the test subject.",
+          "{name} should have known better than to accept drinks from strangers."
+        ];
+        if (killedPlayer) {
+          deathMsg += " And " + witchMsgs[Math.floor(Math.random() * witchMsgs.length)].replace("{name}", witchKillPlayer.name);
+        } else {
+          deathMsg = witchMsgs[Math.floor(Math.random() * witchMsgs.length)].replace("{name}", witchKillPlayer.name);
+          killedPlayer = witchKillPlayer;
+        }
+      }
+    }
+
     room.phase = 'discussion';
     room.votes = {};
-    room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {} };
+    room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {}, serialkiller: {}, witchSave: {}, witchKill: {}, investigator: {} };
     room.lastDeathMessage = deathMsg;
     room.lastVoteSummary = null;
 
@@ -479,10 +636,27 @@ io.on('connection', (socket) => {
       }
     }
 
-    const aliveMafia = room.players.filter(p => p.alive && p.role === 'mafia').length;
-    const aliveTown = room.players.filter(p => p.alive && p.role !== 'mafia').length;
+    const aliveMafia = room.players.filter(p => p.alive && (p.role === 'mafia' || p.role === 'godfather')).length;
+    const aliveTown = room.players.filter(p => p.alive && p.role !== 'mafia' && p.role !== 'godfather' && p.role !== 'serialkiller').length;
+    const aliveSerialKiller = room.players.filter(p => p.alive && p.role === 'serialkiller').length;
 
-    if (jesterWin) {
+    // Check for executioner win
+    const executioners = room.players.filter(p => p.role === 'executioner' && p.alive);
+    let executionerWin = false;
+    executioners.forEach(exec => {
+      if (exec.executionerTarget && !room.players.find(p => p.id === exec.executionerTarget).alive) {
+        executionerWin = true;
+        room.winner = 'executioner';
+        room.phase = 'ended';
+      }
+    });
+
+    if (executionerWin) {
+      // Executioner win message
+    } else if (aliveSerialKiller > 0 && aliveTown === 0 && aliveMafia === 0) {
+      room.phase = 'ended';
+      room.winner = 'serialkiller';
+    } else if (jesterWin) {
       room.phase = 'ended';
       room.winner = 'jester';
     } else if (aliveMafia === 0) {
@@ -494,7 +668,7 @@ io.on('connection', (socket) => {
     } else {
       room.phase = 'night';
       room.votes = {};
-      room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {} };
+      room.nightActions = { mafia: {}, doctor: {}, bodyguard: {}, seer: {}, mayor: {}, serialkiller: {}, witchSave: {}, witchKill: {}, investigator: {} };
     }
 
     room.lastDeathMessage = dayMsg;
@@ -550,6 +724,97 @@ io.on('connection', (socket) => {
     }
 
     player.mayorRevealed = true;
+    rooms.set(roomId, room);
+    io.to(roomId).emit('roomUpdated', room);
+  });
+
+  // Use vigilante kill
+  socket.on('useVigilanteKill', ({ roomId, playerId, targetId }) => {
+    const room = rooms.get(roomId);
+    if (!room || room.phase !== 'day') {
+      socket.emit('error', 'Not day or room not found');
+      return;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || !player.alive || player.role !== 'vigilante' || player.vigilanteKillUsed) {
+      socket.emit('error', 'Unauthorized or already used');
+      return;
+    }
+
+    const target = room.players.find(p => p.id === targetId);
+    if (!target || !target.alive) {
+      socket.emit('error', 'Invalid target');
+      return;
+    }
+
+    target.alive = false;
+    player.vigilanteKillUsed = true;
+
+    const vigilanteMsgs = [
+      "{killer} took justice into their own hands and eliminated {victim}.",
+      "A shot rang out! {killer} killed {victim} in broad daylight.",
+      "{killer} revealed themselves as the Vigilante and shot {victim}.",
+      "In a moment of rage, {killer} killed {victim} right there in town square."
+    ];
+    room.lastDeathMessage = vigilanteMsgs[Math.floor(Math.random() * vigilanteMsgs.length)]
+      .replace("{killer}", player.name)
+      .replace("{victim}", target.name);
+
+    rooms.set(roomId, room);
+    io.to(roomId).emit('roomUpdated', room);
+  });
+
+  // Submit witch save
+  socket.on('submitWitchSave', ({ roomId, playerId, targetId }) => {
+    const room = rooms.get(roomId);
+    if (room.phase !== 'night') {
+      socket.emit('error', 'Not night');
+      return;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || !player.alive || player.role !== 'witch' || player.witchSaveUsed) {
+      socket.emit('error', 'Unauthorized or already used save');
+      return;
+    }
+
+    if (!targetId || targetId === 'none') {
+      // No action
+      rooms.set(roomId, room);
+      io.to(roomId).emit('roomUpdated', room);
+      return;
+    }
+
+    room.nightActions.witchSave[playerId] = targetId;
+    player.witchSaveUsed = true;
+    rooms.set(roomId, room);
+    io.to(roomId).emit('roomUpdated', room);
+  });
+
+  // Submit witch kill
+  socket.on('submitWitchKill', ({ roomId, playerId, targetId }) => {
+    const room = rooms.get(roomId);
+    if (room.phase !== 'night') {
+      socket.emit('error', 'Not night');
+      return;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player || !player.alive || player.role !== 'witch' || player.witchKillUsed) {
+      socket.emit('error', 'Unauthorized or already used kill');
+      return;
+    }
+
+    if (!targetId || targetId === 'none') {
+      // No action
+      rooms.set(roomId, room);
+      io.to(roomId).emit('roomUpdated', room);
+      return;
+    }
+
+    room.nightActions.witchKill[playerId] = targetId;
+    player.witchKillUsed = true;
     rooms.set(roomId, room);
     io.to(roomId).emit('roomUpdated', room);
   });
